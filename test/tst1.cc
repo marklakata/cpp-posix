@@ -7,6 +7,7 @@
 #include "mqueue.hh"
 
 using namespace posix;
+using namespace std;
 
 void test(mqueue<unsigned> Q) {
     DEBUG("capacity = " << Q.capacity());
@@ -17,6 +18,15 @@ void test(mqueue<unsigned> Q) {
 }
 
 int main () {
-    mqueue<unsigned> Q("/tqueue", OPEN_FLAG::RDONLY);
-    test(Q);
+	try 
+	{
+		cout << "opening queue"<< endl;
+		mqueue<unsigned> Q("/tqueue", OPEN_FLAG::RDONLY);
+		cout << "receiving 10M messages ... (please wait)" << endl;
+		test(Q);
+	}
+	catch(std::runtime_error& e)
+	{
+	   cout << "Exception caught: " << e.what() << "\n";
+	}
 }

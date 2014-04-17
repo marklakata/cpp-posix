@@ -103,6 +103,10 @@ public:
     const int errorno;
 };
 
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+#define THROW_ERRNO_EXCEPTION()  throw errno_exception( std::string(__FILE__) + ":" + TOSTRING(__LINE__) +" " + strerror(errno))
+
 
 /**
  */

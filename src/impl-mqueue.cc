@@ -9,6 +9,11 @@
 #include "posix.hh"
 #include "debug.hh"
 
+#include <istream>
+#include <sstream>
+#include <fstream>
+using namespace std;
+
 
 using namespace std::chrono;
 using std::string;
@@ -26,7 +31,7 @@ namespace {
         mq_attr attr;
     
         if (mq_getattr(mqfd, &attr) < 0)
-            throw errno_exception();
+            THROW_ERRNO_EXCEPTION();
         
         return attr;
     }
@@ -56,8 +61,17 @@ _mqueue_base::_mqueue_base(const std::string& name, int open_flags)
     _M_queue = mq_open(name.c_str(), open_flags);
     
     if (_M_queue < 0) 
-        throw errno_exception();
+        THROW_ERRNO_EXCEPTION();
 }
+std::string slurp(std::ifstream& in) {
+    return static_cast<std::stringstream const&>(std::stringstream() << in.rdbuf()).str();
+}
+
+std::string slurp(std::string in) {
+	std::ifstream mmu(in);
+    return slurp(mmu);
+}
+
 
 _mqueue_base::_mqueue_base(long mq_msgsize, const string& name, int open_flags 
                          , long mq_maxmsg, long mq_flags, mode_t mode) 
@@ -69,10 +83,26 @@ _mqueue_base::_mqueue_base(long mq_msgsize, const string& name, int open_flags
     attrib.mq_msgsize = mq_msgsize;
     attrib.mq_curmsgs = 0;
     
+//	cout << "name:" << name << endl;
+//	cout << "flag:" << hex << open_flags << endl;
+//	cout << "attrib.flags " << attrib.mq_flags << endl;
+//	cout << "attrib.maxmsg " << attrib.mq_maxmsg << endl;
+//	cout << "attrib.msgsize " << attrib.mq_msgsize << endl;
+//	cout << "attrib.curmsgs " << attrib.mq_curmsgs << endl;
+//	cout << "mode:" << oct << mode << endl;
     _M_queue = mq_open(name.c_str(), OPEN_FLAG::CREAT | open_flags, mode, &attrib);
     
     if (_M_queue < 0) 
-        throw errno_exception();
+	{
+		std::string s = slurp("/proc/sys/fs/mqueue/msg_max");
+		int32_t msg_max = atoi(s.c_str());
+		if (attrib.mq_maxmsg > msg_max) 
+		{
+			throw runtime_error("Requested Max Messages exceeds system limit (/proc/sys/fs/mqueue/msg_max)");
+		}
+		
+        THROW_ERRNO_EXCEPTION();
+	}
 }
 
 _mqueue_base::~_mqueue_base() {
@@ -122,7 +152,7 @@ _mqueue_base::unlink() {
     int rc = mq_unlink(_M_name.c_str());
 
     if (rc < 0)
-        throw errno_exception();
+        THROW_ERRNO_EXCEPTION();
 }
 
 void 
@@ -130,7 +160,7 @@ _mqueue_base::_M_recv(char* data, size_t len, unsigned* priority) {
     ssize_t rc = mq_receive(_M_queue, data, len, priority);
 
     if (rc < 0)
-        throw errno_exception();
+        THROW_ERRNO_EXCEPTION();
 
     assert(static_cast<size_t>(rc) == len);
 }
@@ -146,7 +176,7 @@ _mqueue_base::_M_timed_recv(char* data, size_t len, unsigned* priority
         if (ETIMEDOUT == errno)
             throw timeout_exception();
         else
-            throw errno_exception();
+            THROW_ERRNO_EXCEPTION();
     }
 
     assert(static_cast<size_t>(rc) == len);
@@ -157,7 +187,7 @@ _mqueue_base::_M_send(char* data, size_t len, unsigned priority) {
     int rc = mq_send(_M_queue, data, len, priority);
 
     if (rc < 0)
-        throw errno_exception();
+        THROW_ERRNO_EXCEPTION();
 
     assert(0 == rc);
 }
@@ -169,7 +199,7 @@ _mqueue_base::_M_timed_send(char* data, size_t len, unsigned priority, TimerUnit
     ssize_t rc = mq_timedsend(_M_queue, data, len, priority, &spec); 
     
     if (rc < 0)
-        throw errno_exception();
+        THROW_ERRNO_EXCEPTION();
 
     assert(0 == rc);
 }

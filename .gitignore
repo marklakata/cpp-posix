@@ -11,3 +11,7 @@
 *.lai
 *.la
 *.a
+/test/.nfs0000000005f720df00000018
+/test/tst0
+/test/tst1
+/test/tst3
